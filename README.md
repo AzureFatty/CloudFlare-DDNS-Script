@@ -3,7 +3,7 @@ CloudFlare 动态域名服务脚本
 
 支持LEDE/OPENWRT，可能需要安装ca-bundle(`opkg install ca-bundle`)
 
-依赖 [jq](https://stedolan.github.io/jq/download/) 工具，请在 [https://stedolan.github.io/jq/download/](https://stedolan.github.io/jq/download/) 下载适合自己的版本。
+**依赖 [jq](https://stedolan.github.io/jq/download/) 工具，请在 [https://stedolan.github.io/jq/download/](https://stedolan.github.io/jq/download/) 下载适合自己的版本。**
 
 ```bash
 #LEDE/Openwrt may need install ca-bundle(opkg install ca-bundle)
@@ -37,9 +37,9 @@ DNS_ZONE_ID=""
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
-
+    
         http://www.apache.org/licenses/LICENSE-2.0
-
+    
     Unless required by applicable law or agreed to in writing, software
     distributed under the License is distributed on an "AS IS" BASIS,
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
