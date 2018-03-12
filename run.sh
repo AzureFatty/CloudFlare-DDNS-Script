@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#LEDE/Openwrt may need install ca-bundle(opkg install ca-bundle)
+#LEDE/Openwrt may need install ca-bundle curl(opkg install ca-bundle curl)
 
 #Your domain
 DOMAIN="example.com"
