@@ -1,7 +1,7 @@
 # CloudFlare-DDNS-Script
 CloudFlare 动态域名服务脚本
 
-支持LEDE/OPENWRT，可能需要安装ca-bundle(`opkg install ca-bundle`)
+支持LEDE/OPENWRT，可能需要安装ca-bundle curl(`opkg install ca-bundle curl`)
 
 **依赖 [jq](https://stedolan.github.io/jq/download/) 工具，请在 [https://stedolan.github.io/jq/download/](https://stedolan.github.io/jq/download/) 下载适合自己的版本。**
 
