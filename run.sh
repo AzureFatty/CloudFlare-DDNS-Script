@@ -2,67 +2,34 @@
 
 #LEDE/Openwrt may need install ca-bundle curl(opkg install ca-bundle curl)
 
-#Your domain
-DOMAIN="example.com"
+#Add you custom record to the CloudFlare first.
+
 #Your sub domain
 SUB_DOMAIN="sub.example.com"
-#Yor account
-AUTH_EMAIL="Your account"
-#Your auth key:https://www.cloudflare.com/a/profile --> Global API Key
-AUTH_KEY="8b1a9953c4611296a827abf8c47804d7"
-#The path of jq binaries . Download from https://stedolan.github.io/jq/download/ 
-JQ_PATH="./jq-linux64"
-#[Optional]https://www.cloudflare.com/a/overview/example.com --> Zone ID:
-DNS_ZONE_ID="f5a7924e621e84c9280a9a27e1bcb7f6"
+#dash --> example.com --> Overview --> Zone ID:
+#https://dash.cloudflare.com/_your_account_id_/example.com
+ZONE_ID="5d41402abc4b2a76b9719d911017c592"
+#API Tokens
+#https://dash.cloudflare.com/profile/api-tokens
+#Manage access and permissions for your accounts, sites, and products
+#example.com- Zone:Read, DNS:Edit
+TOKEN_ID="7d793037a076018657-_rZiSa4-f5xIgEvZzHNv"
+#The path of jq binaries . Download from https://stedolan.github.io/jq/download/
+#If the system has installed jq. Just typed jq.
+#If you custom a special binary. Just type the path of jq
+JQ_PATH="jq"
 
-if [ -z "$DNS_ZONE_ID" ]; then
-    jsonResult=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones" \
-                         -H "X-Auth-Email: ${AUTH_EMAIL}" \
-                         -H "X-Auth-Key: ${AUTH_KEY}" \
-                         -H "Content-Type: application/json")
-    curlResult=$(echo $jsonResult|$JQ_PATH -r .success)
-
-    if [ "$curlResult" = true ]; then
-        echo "Get domain list success."
-    else
-        echo "Get domain list fail."
-        exit 1
-    fi
-
-    domainSize=$(echo $jsonResult | $JQ_PATH .result|$JQ_PATH length)
-    echo "Total found $domainSize domain"
-
-    index=0
-    while [ $index -lt $domainSize ]; do
-        tResult=$(echo $jsonResult | $JQ_PATH -r .result[$index])
-        tmpDomain=$(echo $tResult | $JQ_PATH -r .name)
-        echo "Found domain:$tmpDomain"
-        if [ "$tmpDomain"x = "$DOMAIN"x ]; then
-            DNS_ZONE_ID=$(echo $tResult | $JQ_PATH -r .id)
-            break
-        else
-            echo 'not right'
-        fi 
-        index=`expr $index + 1`
-    done
-else
-    echo "The user has set up ZONE ID "
+if [ -n "$DNS_ZONE_ID" ]; then
+    echo "The user has not configure the the ZONE ID "
+    exit 1
 fi
 
+echo "Your dns zone id is: $ZONE_ID"
+jsonResult=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records" \
+    -H "Authorization: Bearer ${TOKEN_ID}" \
+    -H "Content-Type: application/json")
 
-if [ -z "$DNS_ZONE_ID" ]; then
-  echo "Get DNS ZONE ID  failed"
-  exit 1
-fi
-
-echo "Your dns zone id is: $DNS_ZONE_ID"
-
-jsonResult=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/${DNS_ZONE_ID}/dns_records" \
-                        -H "X-Auth-Email: ${AUTH_EMAIL}" \
-                        -H "X-Auth-Key: ${AUTH_KEY}" \
-                        -H "Content-Type: application/json")
-
-curlResult=$(echo $jsonResult|$JQ_PATH -r .success)
+curlResult=$(echo $jsonResult | $JQ_PATH -r .success)
 
 if [ "$curlResult" = true ]; then
     echo "Get dns record success."
@@ -71,59 +38,82 @@ else
     exit 1
 fi
 
-recordSize=$(echo $jsonResult | $JQ_PATH .result|$JQ_PATH length)
+recordSize=$(echo $jsonResult | $JQ_PATH .result | $JQ_PATH length)
 echo "Total found $recordSize record"
 
 index=0
 while [ $index -lt $recordSize ]; do
     tResult=$(echo $jsonResult | $JQ_PATH -r .result[$index])
     tmpDomain=$(echo $tResult | $JQ_PATH -r .name)
-    echo "Found domain:$tmpDomain"
+    type=$(echo $tResult | $JQ_PATH -r .type)
+
     if [ "$tmpDomain"x = "$SUB_DOMAIN"x ]; then
-        identifier=$(echo $tResult | $JQ_PATH -r .id)
-        break
+        if [ "AAAA"x = "$type"x ]; then
+            echo "Found AAAA domain:$tmpDomain"
+            identifier_v6=$(echo $tResult | $JQ_PATH -r .id)
+        elif [ "A"x = "$type"x ]; then
+            echo "Found A domain:$tmpDomain"
+            identifier_v4=$(echo $tResult | $JQ_PATH -r .id)
+        else
+            echo "Please add the A or AAAA record manually first."
+        fi
     fi
-    index=`expr $index + 1`
+    index=$(expr $index + 1)
 done
 
-if [ -z "$identifier" ]; then
-    echo "Get '$SUB_DOMAIN' identifier failed."
+if [ -z "$identifier_v4" ] && [ -z "$identifier_v6" ]; then
+    echo "Get '$SUB_DOMAIN' identifier failed. Please add the A or AAAA record manually first."
     exit 1
 else
-    echo "Get '$SUB_DOMAIN' identifier success.identifier:$identifier"
+    echo "Get '$SUB_DOMAIN' identifier success. [A] identifier:$identifier_v4 [AAAA] identifier:$identifier_v6"
 fi
 
-IP=$(curl -s http://members.3322.org/dyndns/getip)
+if [ -z "$identifier_v4" ]; then
+    echo "IPv4 address are not required."
+else
+    IP=$(curl -s http://members.3322.org/dyndns/getip)
+    #IP=$(curl -s https://api-ipv4.ip.sb/ip)
+    regex='\b((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}\b'
+    matchIP=$(echo $IP | grep -E $regex)
+    if [ -n "$matchIP" ]; then
+        echo "[$IP] IPv4 matches..."
+        jsonResult=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records/${identifier_v4}" \
+            -H "Authorization: Bearer ${TOKEN_ID}" \
+            -H "Content-Type: application/json" \
+            --data '{"type":"A","name":"'${SUB_DOMAIN}'","content":"'${IP}'","ttl":1,"proxied":false}')
+        curlResult=$(echo $jsonResult | $JQ_PATH -r .success)
 
-VLIED_IP=false
-VALID_CHECK=$(echo $IP|awk -F. '$1<=255&&$2<=255&&$3<=255&&$4<=255{print "yes"}')
-    if echo $IP|grep -E "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$">/dev/null; then
-        if [ "${VALID_CHECK:-no}"x = "yes"x ]; then
-            echo "IP $IP available."
-            VLIED_IP=true;
+        if [ "$curlResult" = true ]; then
+            echo "Update IPv4 dns record success."
         else
-            echo "IP $IP not available!"
-            VLIED_IP=false;
+            echo "Update IPv4 dns record fail."
         fi
     else
-        echo "IP format error!"
-        VLIED_IP=false;
+        echo "[$IP]IPv4 doesn't match!"
     fi
-
-if [ "$VLIED_IP" = false ]; then
-    exit 1
 fi
 
-jsonResult=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/${DNS_ZONE_ID}/dns_records/${identifier}" \
-                        -H "X-Auth-Email: ${AUTH_EMAIL}" \
-                        -H "X-Auth-Key: ${AUTH_KEY}" \
-                        -H "Content-Type: application/json" \
-                        --data '{"type":"A","name":"'${SUB_DOMAIN}'","content":"'${IP}'","ttl":1,"proxied":false}')
-curlResult=$(echo $jsonResult|$JQ_PATH -r .success)
-
-if [ "$curlResult" = true ]; then
-    echo "Update dns record success."
+if [ -z "$identifier_v6" ]; then
+    echo "IPv6 addresses are not required."
 else
-    echo "Update dns record fail."
-    exit 1
+    IP=$(curl -s https://api-ipv6.ip.sb/ip)
+    regex='^([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{0,4}$'
+    matchIP=$(echo $IP | grep -E $regex)
+    if [ -n "$matchIP" ]; then
+        echo "[$IP] IPv6 matches..."
+        echo "Update IPv6 ..."
+        jsonResult=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records/${identifier_v6}" \
+            -H "Authorization: Bearer ${TOKEN_ID}" \
+            -H "Content-Type: application/json" \
+            --data '{"type":"AAAA","name":"'${SUB_DOMAIN}'","content":"'${IP}'","ttl":1,"proxied":false}')
+        curlResult=$(echo $jsonResult | $JQ_PATH -r .success)
+
+        if [ "$curlResult" = true ]; then
+            echo "Update IPv6 dns record success."
+        else
+            echo "Update IPv6 dns record fail."
+        fi
+    else
+        echo "[$IP] IPv6 doesn't match!"
+    fi
 fi
