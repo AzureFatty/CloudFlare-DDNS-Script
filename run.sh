@@ -71,8 +71,8 @@ fi
 if [ -z "$identifier_v4" ]; then
     echo "IPv4 address are not required."
 else
-    IP=$(curl -s http://members.3322.org/dyndns/getip)
-    #IP=$(curl -s https://api-ipv4.ip.sb/ip)
+    #IP=$(curl -s http://members.3322.org/dyndns/getip)
+    IP=$(curl -s https://api-ipv4.ip.sb/ip)
     regex='\b((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}\b'
     matchIP=$(echo $IP | grep -E $regex)
     if [ -n "$matchIP" ]; then
