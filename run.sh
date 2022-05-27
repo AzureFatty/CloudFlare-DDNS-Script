@@ -72,7 +72,7 @@ if [ -z "$identifier_v4" ]; then
     echo "IPv4 address are not required."
 else
     #IP=$(curl -s http://members.3322.org/dyndns/getip)
-    IP=$(curl -s https://api-ipv4.ip.sb/ip)
+    IP=$(curl -s http://ip.3322.net/)
     regex='\b((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}\b'
     matchIP=$(echo $IP | grep -E $regex)
     if [ -n "$matchIP" ]; then
@@ -96,7 +96,7 @@ fi
 if [ -z "$identifier_v6" ]; then
     echo "IPv6 addresses are not required."
 else
-    IP=$(curl -s https://api-ipv6.ip.sb/ip)
+    IP=$(curl -6 ip.sb)
     regex='^([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{0,4}$'
     matchIP=$(echo $IP | grep -E $regex)
     if [ -n "$matchIP" ]; then
